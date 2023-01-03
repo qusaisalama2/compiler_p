@@ -1,0 +1,118 @@
+package jfls;
+
+import java.util.Scanner;
+import java.util.HashMap;
+
+import java.util.Scanner;
+import java.util.HashMap;
+
+public class SyntaxAnalyzer {
+    private Token currentToken;
+    private Token previousToken;
+    private Lexer lexer;
+    private Scanner scanner;
+    private HashMap<String, String> symbolTable;
+
+    public SyntaxAnalyzer(Lexer lexer) {
+        this.lexer = lexer;
+        scanner = new Scanner(System.in);
+        symbolTable = new HashMap<>();
+        currentToken = lexer.getNextToken();
+    }
+
+    public void parse() {
+        program();
+        match("$");
+    }
+
+    private void program() {
+        match("START");
+        statements();
+        match("END");
+    }
+
+    private void statements() {
+        statement();
+        while (currentToken.getType().equals("ID")) {
+            statement();
+        }
+    }
+
+    private void statement() {
+        String id = currentToken.getValue();
+        match("ID");
+        match("ASSIGN_OP");
+        String type = symbolTable.get(id);
+        if (type == null) {
+        	System.out.println("Error: ID " + id + " has not been declared");
+            System.exit(1);
+        }
+        String expressionType = expression();
+        if (!type.equals(expressionType)) {
+            System.out.println("Error: cannot assign value of type " + expressionType + " to variable of type " + type);
+            System.exit(1);
+        }
+        match("SEMICOLON");
+    }
+    private String expression() {
+        String type = term();
+        return expressionPrime(type);
+    }
+
+    private String expressionPrime(String lhsType) {
+        if (currentToken.getType().equals("ADD_OP")) {
+            match("ADD_OP");
+            String rhsType = term();
+            if (lhsType.equals(rhsType)) {
+                return lhsType;
+            } else if (lhsType.equals("INTEGER") && rhsType.equals("FLOAT")) {
+                return "FLOAT";
+            } else if (lhsType.equals("FLOAT") && rhsType.equals("INTEGER")) {
+                return "FLOAT";
+            } else {
+                System.out.println("Error: cannot perform operation on values of type " + lhsType + " and " + rhsType);
+                System.exit(1);
+            }
+        }
+        return lhsType;
+    }
+    private String term() {
+        String type = null;
+        if (currentToken.getType().equals("ID")) {
+            String id = currentToken.getValue();
+            type = symbolTable.get(id);
+            if (type == null) {
+                System.out.println("Error: ID " + id + " has not been declared");
+                System.exit(1);
+            }
+            match("ID");
+        } else if (currentToken.getType().equals("INTEGER")) {
+            type = "INTEGER";
+            match("INTEGER");
+        } else if (currentToken.getType().equals("FLOAT")) {
+            type = "FLOAT";
+            match("FLOAT");
+        } else {
+            System.out.println("Error: expected ID, INTEGER, or FLOAT, found " + currentToken.getType());
+            System.exit(1);
+        }
+        return type;
+    }
+
+    private void match(String expectedType) {
+        if (currentToken.getType().equals(expectedType)) {
+            previousToken = currentToken;
+            currentToken = lexer.getNextToken();
+        } else {
+            System.out.println("Error: expected " + expectedType + ", found " + currentToken.getType());
+            System.exit(1);
+        }
+    }
+
+    public static void main(String[] args) {
+        String input = "START program TYPE ID declarations ID ADD_OP ID";
+        Lexer lexer = new Lexer(input);
+        SyntaxAnalyzer parser = new SyntaxAnalyzer(lexer);
+        parser.parse();
+    }
+}
